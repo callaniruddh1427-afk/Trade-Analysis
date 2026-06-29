@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock News Impact</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, system-ui, sans-serif;
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem;
+      background: #fafaf8;
+      color: #1a1a1a;
+    }
+    h1 { font-size: 22px; font-weight: 500; margin-bottom: 0.5rem; }
+    p.sub { color: #666; font-size: 14px; margin-bottom: 1.5rem; }
+    .search-row { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+    input {
+      flex: 1;
+      height: 44px;
+      padding: 0 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+    button {
+      height: 44px;
+      padding: 0 20px;
+      border: none;
+      border-radius: 8px;
+      background: #1a1a1a;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button:disabled { background: #999; cursor: not-allowed; }
+    .examples { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .chip {
+      font-size: 13px;
+      padding: 6px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+    }
+    #result { margin-top: 1rem; }
+    .card {
+      background: white;
+      border: 1px solid #eee;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .label { font-size: 12px; color: #888; margin-bottom: 4px; }
+    .companies { display: flex; gap: 8px; flex-wrap: wrap; }
+    .company-pill {
+      background: #f0f0ed;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 13px;
+    }
+    .direction-up { color: #0a7a4a; font-weight: 500; }
+    .direction-down { color: #b3261e; font-weight: 500; }
+    .direction-mixed { color: #9a6700; font-weight: 500; }
+    .loading { color: #888; font-size: 14px; }
+    .error { color: #b3261e; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Stock news impact</h1>
+  <p class="sub">News ya event daalo, dekho kis sector/company ko asar padega — real Gemini AI analysis se.</p>
+
+  <div class="search-row">
+    <input type="text" id="queryInput" placeholder="jaise: E20 ethanol policy, semiconductor push, iPhone launch" />
+    <button id="searchBtn">Search</button>
+  </div>
+
+  <div class="examples">
+    <span class="chip" data-q="Sarkar ne E20 petrol mandatory kar diya, E85 aur E100 bhi aane wala hai">E20/E85 ethanol</span>
+    <span class="chip" data-q="India semiconductor manufacturing push, naye fabs ban rahe hain">Semiconductor push</span>
+    <span class="chip" data-q="iPhone 18 launch hone wala hai naye features ke saath">iPhone 18 launch</span>
+  </div>
+
+  <div id="result"></div>
+
+  <script>
+    const queryInput = document.getElementById('queryInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const resultDiv = document.getElementById('result');
+
+    async function runSearch(query) {
+      if (!query || !query.trim()) return;
+      resultDiv.innerHTML = '<p class="loading">Analysis ho raha hai...</p>';
+      searchBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          resultDiv.innerHTML = `<p class="error">${data.error}</p>`;
+          return;
+        }
+
+        const dirClass = data.direction === 'up' ? 'direction-up' : data.direction === 'down' ? 'direction-down' : 'direction-mixed';
+        const dirText = data.direction === 'up' ? 'Upar jaane ka trend' : data.direction === 'down' ? 'Neeche jaane ka trend' : 'Mixed asar';
+
+        resultDiv.innerHTML = `
+          <div class="card">
+            <div class="label">Sector</div>
+            <div>${data.sector}</div>
+          </div>
+          <div class="card">
+            <div class="label">Mechanism</div>
+            <div>${data.mechanism}</div>
+          </div>
+          <div class="card">
+            <div class="label">Affected companies</div>
+            <div class="companies">
+              ${data.companies.map(c => `<span class="company-pill">${c}</span>`).join('')}
+            </div>
+          </div>
+          <div class="card">
+            <div class="label">Direction</div>
+            <div class="${dirClass}">${dirText}</div>
+          </div>
+        `;
+      } catch (err) {
+        resultDiv.innerHTML = '<p class="error">Kuch galat hua, dobara try karo.</p>';
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    searchBtn.addEventListener('click', () => runSearch(queryInput.value));
+    queryInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') runSearch(queryInput.value);
+    });
+
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        queryInput.value = chip.dataset.q;
+        runSearch(chip.dataset.q);
+      });
+    });
+  </script>
+</body>
+</html>
