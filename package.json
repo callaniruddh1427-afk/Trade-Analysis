@@ -1,0 +1,11 @@
+{
+  "name": "stock-impact-app",
+  "version": "1.0.0",
+  "description": "News se stock impact dekhne wala tool - Gemini AI ke saath",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0"
+  }
+}
