@@ -130,7 +130,8 @@ nav{background:var(--ink);padding:0 2rem;display:flex;align-items:center;justify
 .dc-val{font-size:13px;color:var(--ink2);line-height:1.55}
 .dc-hist{border-left:3px solid var(--gold-mid)}
 .cos{display:flex;flex-wrap:wrap;gap:6px;margin-top:.5rem}
-.co{background:var(--gold-light);color:var(--gold-dark);border:1px solid var(--gold-mid);border-radius:2px;padding:3px 10px;font-size:12px;font-weight:500}
+.co{background:var(--gold-light);color:var(--gold-dark);border:1px solid var(--gold-mid);border-radius:2px;padding:3px 10px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.co.active{background:var(--gold);color:#1a1612;border-color:var(--gold-dark)}
 .chart-area{height:170px;position:relative;margin-top:1rem;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.75rem}
 .chart-note{font-size:10px;color:var(--ink4);margin-top:6px;letter-spacing:0.04em;display:flex;align-items:center;gap:6px}
 .chart-note.real{color:var(--green)}
@@ -358,7 +359,7 @@ function renderCards(items){
             <div class="dc wide dc-hist"><div class="dc-label">Historical precedent</div><div class="dc-val">${it.historicalPrecedent||'No specific historical precedent available for this event.'}</div></div>
           </div>
           <div class="dc-label">Companies to watch</div>
-          <div class="cos">${it.companies.map(c=>`<span class="co">${c}</span>`).join('')}</div>
+          <div class="cos">${it.companies.map((c,ci)=>`<span class="co ${ci===0?'active':''}" data-ticker="${c}" data-i="${i}">${c}</span>`).join('')}</div>
           <div class="chart-area"><canvas id="ch_${i}" role="img" aria-label="30-day historical price chart"></canvas></div>
           <div class="chart-note" id="note_${i}">Loading real price data...</div>
         </div>
@@ -375,6 +376,19 @@ function renderCards(items){
         card.classList.add('open');
         setTimeout(()=>loadChart(i,items[i]),60);
       }
+    });
+  });
+
+  document.querySelectorAll('.co').forEach(chip=>{
+    chip.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      const i=chip.dataset.i;
+      const ticker=chip.dataset.ticker;
+      document.querySelectorAll(`.co[data-i="${i}"]`).forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      const noteEl=document.getElementById(`note_${i}`);
+      if(noteEl)noteEl.textContent='Loading real price data...';
+      loadChart(i,{...items[i],primaryTicker:ticker});
     });
   });
 }
