@@ -13,7 +13,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const prompt = `You are an Indian stock market analyst. Analyze this news/event and respond ONLY with valid JSON (no markdown, no backticks, no explanation):
+    const prompt = `You are an Indian stock market analyst with deep knowledge of historical market events. Analyze this news/event and respond ONLY with valid JSON (no markdown, no backticks, no explanation):
 
 News: "${query}"
 
@@ -22,12 +22,16 @@ Return exactly this JSON structure:
   "sector": "2-3 word sector name",
   "companies": ["Company1", "Company2", "Company3", "Company4"],
   "mechanism": "1-2 sentence explanation of why and how these stocks are affected",
+  "historicalPrecedent": "Describe a REAL similar past event and what actually happened to relevant stocks/sectors then. Be specific with real company names, approximate percentage moves, and timeframes if you know them. If no close precedent exists, say so honestly and explain the closest analogous situation.",
+  "primaryTicker": "The NSE ticker symbol (without .NS suffix) of the single most relevant/liquid company from your companies list, e.g. RELIANCE, TCS, DIXON, ZEEL",
   "direction": "up"
 }
 
 Rules:
 - companies must be real NSE/BSE listed Indian companies
+- primaryTicker must be a valid NSE symbol for one of the companies listed
 - direction must be exactly "up", "down", or "mixed"
+- historicalPrecedent must reference REAL past events, not hypothetical ones — be honest if you're not fully certain of exact numbers, use "approximately" or "around"
 - No markdown, no backticks, only raw JSON`;
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -41,7 +45,7 @@ Rules:
         messages: [
           { role: 'user', content: prompt }
         ],
-        temperature: 0.7,
+        temperature: 0.6,
         response_format: { type: 'json_object' }
       })
     });
