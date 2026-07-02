@@ -128,10 +128,13 @@ nav{background:var(--ink);padding:0 2rem;display:flex;align-items:center;justify
 .dc.wide{grid-column:1/-1}
 .dc-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink4);margin-bottom:5px}
 .dc-val{font-size:13px;color:var(--ink2);line-height:1.55}
+.dc-hist{border-left:3px solid var(--gold-mid)}
 .cos{display:flex;flex-wrap:wrap;gap:6px;margin-top:.5rem}
 .co{background:var(--gold-light);color:var(--gold-dark);border:1px solid var(--gold-mid);border-radius:2px;padding:3px 10px;font-size:12px;font-weight:500}
 .chart-area{height:170px;position:relative;margin-top:1rem;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.75rem}
-.chart-note{font-size:10px;color:var(--ink4);margin-top:6px;letter-spacing:0.04em}
+.chart-note{font-size:10px;color:var(--ink4);margin-top:6px;letter-spacing:0.04em;display:flex;align-items:center;gap:6px}
+.chart-note.real{color:var(--green)}
+.chart-loading{display:flex;align-items:center;justify-content:center;height:100%;font-size:12px;color:var(--ink4)}
 
 /* SIDEBAR */
 .market-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1.5rem}
@@ -240,7 +243,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--ink4);border-
     <div class="divider"></div>
     <div class="sec-label">About</div>
     <div style="font-size:12px;color:var(--ink4);line-height:1.7">
-      TradeSignal uses Gemini AI to map news events to Indian listed companies using sector analysis and historical pattern recognition. Results are educational — not investment advice.
+      TradeSignal uses AI to map news events to Indian listed companies using sector analysis and historical pattern recognition, with real 30-day price charts pulled live for the most relevant stock. Results are educational — not investment advice.
     </div>
   </div>
 </div>
@@ -277,7 +280,8 @@ setInterval(updateTime,1000);updateTime();
 window.addEventListener('load',()=>setTimeout(()=>document.getElementById('loader').classList.add('hide'),1900));
 
 const charts={};
-function drawChart(id,dir){
+
+function drawSimulatedChart(id,dir){
   if(charts[id])charts[id].destroy();
   const el=document.getElementById(id);if(!el)return;
   const color=dir==='up'?'#1a6b3a':dir==='down'?'#8b1f1f':'#7a5c10';
@@ -290,6 +294,42 @@ function drawChart(id,dir){
     data:{labels,datasets:[{data:pts,borderColor:color,backgroundColor:color+'14',borderWidth:1.5,fill:true,tension:0.4,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:color}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1612',borderColor:'#4d4232',borderWidth:1,titleColor:'#9a8e78',bodyColor:'#f5efd4',callbacks:{label:c=>`${c.parsed.y.toFixed(1)} pts`}}},scales:{y:{ticks:{color:'#9a8e78',font:{size:10},maxTicksLimit:5},grid:{color:'#e8e4d8'},border:{display:false}},x:{ticks:{color:'#9a8e78',font:{size:10},maxTicksLimit:6},grid:{display:false},border:{display:false}}}}
   });
+}
+
+function drawRealChart(id,points,dir,companyName){
+  if(charts[id])charts[id].destroy();
+  const el=document.getElementById(id);if(!el)return;
+  const color=dir==='up'?'#1a6b3a':dir==='down'?'#8b1f1f':'#7a5c10';
+  const labels=points.map(p=>new Date(p.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}));
+  const closes=points.map(p=>p.close);
+  charts[id]=new Chart(el,{
+    type:'line',
+    data:{labels,datasets:[{data:closes,borderColor:color,backgroundColor:color+'14',borderWidth:1.5,fill:true,tension:0.3,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:color}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1612',borderColor:'#4d4232',borderWidth:1,titleColor:'#9a8e78',bodyColor:'#f5efd4',callbacks:{label:c=>`₹${c.parsed.y.toFixed(2)}`}}},scales:{y:{ticks:{color:'#9a8e78',font:{size:10},maxTicksLimit:5},grid:{color:'#e8e4d8'},border:{display:false}},x:{ticks:{color:'#9a8e78',font:{size:10},maxTicksLimit:6},grid:{display:false},border:{display:false}}}}
+  });
+}
+
+async function loadChart(i,item){
+  const areaId=`ch_${i}`;
+  const noteId=`note_${i}`;
+  const el=document.getElementById(areaId);
+  const noteEl=document.getElementById(noteId);
+  if(!item.primaryTicker){drawSimulatedChart(areaId,item.direction||'mixed');return;}
+  try{
+    const r=await fetch(`/api/stockdata?symbol=${encodeURIComponent(item.primaryTicker)}`);
+    const d=await r.json();
+    if(d.found && d.points && d.points.length>1){
+      drawRealChart(areaId,d.points,item.direction||'mixed',d.companyName);
+      if(noteEl)noteEl.innerHTML=`<span>●</span> Real 30-day price data · ${d.companyName||item.primaryTicker} (NSE)`;
+      if(noteEl)noteEl.classList.add('real');
+    }else{
+      drawSimulatedChart(areaId,item.direction||'mixed');
+      if(noteEl)noteEl.textContent='Live data unavailable for this ticker · Showing simulated pattern';
+    }
+  }catch{
+    drawSimulatedChart(areaId,item.direction||'mixed');
+    if(noteEl)noteEl.textContent='Live data unavailable · Showing simulated pattern';
+  }
 }
 
 function renderCards(items){
@@ -315,11 +355,12 @@ function renderCards(items){
             <div class="dc"><div class="dc-label">Sector</div><div class="dc-val">${it.sector}</div></div>
             <div class="dc"><div class="dc-label">Signal</div><div class="dc-val"><span class="pill ${d}">${dl}</span></div></div>
             <div class="dc wide"><div class="dc-label">Why this matters</div><div class="dc-val">${it.mechanism}</div></div>
+            <div class="dc wide dc-hist"><div class="dc-label">Historical precedent</div><div class="dc-val">${it.historicalPrecedent||'No specific historical precedent available for this event.'}</div></div>
           </div>
           <div class="dc-label">Companies to watch</div>
           <div class="cos">${it.companies.map(c=>`<span class="co">${c}</span>`).join('')}</div>
-          <div class="chart-area"><canvas id="ch_${i}" role="img" aria-label="30-day historical sector performance chart"></canvas></div>
-          <div class="chart-note">30-day sector performance · Simulated historical pattern</div>
+          <div class="chart-area"><canvas id="ch_${i}" role="img" aria-label="30-day historical price chart"></canvas></div>
+          <div class="chart-note" id="note_${i}">Loading real price data...</div>
         </div>
       </div>
     </div>`;
@@ -330,7 +371,10 @@ function renderCards(items){
       const i=card.dataset.i;
       const was=card.classList.contains('open');
       document.querySelectorAll('.news-card').forEach(c=>c.classList.remove('open'));
-      if(!was){card.classList.add('open');setTimeout(()=>drawChart(`ch_${i}`,items[i].direction||'mixed'),60);}
+      if(!was){
+        card.classList.add('open');
+        setTimeout(()=>loadChart(i,items[i]),60);
+      }
     });
   });
 }
